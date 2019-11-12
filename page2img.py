@@ -106,6 +106,19 @@ def cli(page, out_dir, level, image_format, page_version, text, font):
 
         xys = [tuple([int(p) for p in pair.split(',')]) for pair in points.split(' ')]
 
+        # Look for a Baseline with larger x than in Coords (problem in ONB GT).
+        # If found, use that larger x in Coords, too, to extract the right line image.
+        # Coords   =  [(1271, 672), (2065, 672), (2065, 718), (1271, 718)]
+        # Baseline =  [(1272, 707), (1345, 705), (1454, 707), (1654, 708), (1868, 708), (1955, 709), (2916, 715)]
+        baseline_points = struct.find("./" + PC + "Baseline").get("points")
+        if baseline_points:
+            baseline_xys = [tuple([int(p) for p in pair.split(',')]) for pair in baseline_points.split(' ')]
+            baseline_right = baseline_xys[len(baseline_xys) - 1][0]
+            if baseline_right > xys[1][0]:
+                xys[1] = (baseline_right, xys[1][1])
+            if baseline_right > xys[2][0]:
+                xys[2] = (baseline_right, xys[2][1])
+
         #
         # draw regions into page
         if level == 'page':
