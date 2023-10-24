@@ -20,8 +20,9 @@ from PIL import Image, ImageDraw, ImageFont
 @click.option('-p', '--page-version', type=click.Choice(['2013-07-15','2019-07-15']), default='2019-07-15', help="PAGE version (default: '2019-07-15')")
 @click.option('-t', '--text', is_flag=True, default=False, help="Also extract full text (if available) and put it into a text file in the output directory.")
 @click.option('-f', '--font', type=click.Path(dir_okay=False), help="Truetype font file for label output")
+@click.option('-v', '--verbose', is_flag=True, help='Enable verbose mode')
 
-def cli(page, out_dir, level, image_format, page_version, text, font):
+def cli(page, out_dir, level, image_format, page_version, text, font, verbose):
     """ PAGE: Input PAGE XML """
 
     xml = etree.parse(page)
@@ -116,8 +117,12 @@ def cli(page, out_dir, level, image_format, page_version, text, font):
             baseline_right = baseline_xys[len(baseline_xys) - 1][0]
             if baseline_right > xys[1][0]:
                 xys[1] = (baseline_right, xys[1][1])
+                if verbose:
+                    print(f'INFO: baseline right of bounding box for {src_img}')
             if baseline_right > xys[2][0]:
                 xys[2] = (baseline_right, xys[2][1])
+                if verbose:
+                    print(f'INFO: baseline left of bounding box for {src_img}')
 
         #
         # draw regions into page
