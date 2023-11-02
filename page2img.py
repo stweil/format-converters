@@ -21,8 +21,9 @@ from PIL import Image, ImageDraw, ImageFont
 @click.option('-t', '--text', is_flag=True, default=False, help="Also extract full text (if available) and put it into a text file in the output directory.")
 @click.option('-f', '--font', type=click.Path(dir_okay=False), help="Truetype font file for label output")
 @click.option('-v', '--verbose', is_flag=True, help='Enable verbose mode')
+@click.option('--debug', is_flag=True, help='Enable debug mode')
 
-def cli(page, out_dir, level, image_format, page_version, text, font, verbose):
+def cli(page, out_dir, level, image_format, page_version, text, font, verbose, debug):
     """ PAGE: Input PAGE XML """
 
     xml = etree.parse(page)
@@ -105,6 +106,8 @@ def cli(page, out_dir, level, image_format, page_version, text, font, verbose):
         if not points:
             continue
 
+        outname = f'{out_dir}/{os.path.basename(src_img)}_{struct.get("id")}.{image_format}'
+
         xys = [tuple([int(p) for p in pair.split(',')]) for pair in points.split(' ')]
 
         # Look for a Baseline with larger x than in Coords (problem in ONB GT).
@@ -116,13 +119,17 @@ def cli(page, out_dir, level, image_format, page_version, text, font, verbose):
             baseline_xys = [tuple([int(p) for p in pair.split(',')]) for pair in baseline_points.split(' ')]
             baseline_right = baseline_xys[len(baseline_xys) - 1][0]
             if baseline_right > xys[1][0]:
+                if verbose:
+                    print(f'INFO: baseline right of bounding box for {outname}')
+                if debug:
+                    print(f'DEBUG: {baseline_right=}, {xys=}')
                 xys[1] = (baseline_right, xys[1][1])
-                if verbose:
-                    print(f'INFO: baseline right of bounding box for {src_img}')
             if baseline_right > xys[2][0]:
-                xys[2] = (baseline_right, xys[2][1])
                 if verbose:
-                    print(f'INFO: baseline left of bounding box for {src_img}')
+                    print(f'INFO: baseline left of bounding box for {outname}')
+                if debug:
+                    print(f'DEBUG: {baseline_right=}, {xys=}')
+                xys[2] = (baseline_right, xys[2][1])
 
         #
         # draw regions into page
@@ -169,18 +176,32 @@ def cli(page, out_dir, level, image_format, page_version, text, font, verbose):
                     pass
                 elif 90 - delta < angle and angle < 90 + delta:
                     pil_image_struct = pil_image_struct.rotate(90, expand=True)
+                    if verbose:
+                        print(f'INFO: line rotated by 90° in image {outname}')
                 elif -90 - delta < angle and angle < -90 + delta:
                     pil_image_struct = pil_image_struct.rotate(-90, expand=True)
+                    if verbose:
+                        print(f'INFO: line rotated by -90° in image {outname}')
                 elif 180 - delta < angle and angle < 180 + delta:
                     pil_image_struct = pil_image_struct.rotate(180, expand=True)
+                    if verbose:
+                        print(f'INFO: line rotated by 180° in image {outname}')
                 elif -180 - delta < angle and angle < -180 + delta:
                     pil_image_struct = pil_image_struct.rotate(180, expand=True)
+                    if verbose:
+                        print(f'INFO: line rotated by -180° in image {outname}')
                 else:
                     print(f'WARNING: line not rotated by {angle}° in image {outname}')
 
             # save struct image
-            pil_image_struct.save("%s/%s_%s.%s" % (out_dir,os.path.basename(src_img),struct.get("id"),image_format), dpi=(300,300))
-            pil_image_struct.close()
+            try:
+                pil_image_struct.save(f'{outname}', dpi=(300,300))
+            except:
+                print(f'ERROR: failed to write {outname}, {pil_image_struct=}')
+                # Don't extract text if image could not be written.
+                continue
+            finally:
+                pil_image_struct.close()
 
         #
         # extract text if requested by user
@@ -190,8 +211,10 @@ def cli(page, out_dir, level, image_format, page_version, text, font, verbose):
                 unic = text_equiv.find("./" + PC + "Unicode")
                 if unic is not None and unic.text is not None:
                     if level == 'page':
+                        print("%s/%s.txt" % (out_dir,os.path.basename(src_img)))
                         text_dest = open("%s/%s.txt" % (out_dir,os.path.basename(src_img)), "wa")
                     else:
+                        print("%s/%s_%s.txt" % (out_dir,os.path.basename(src_img),struct.get("id")))
                         text_dest = open("%s/%s_%s.txt" % (out_dir,os.path.basename(src_img),struct.get("id")), "w")
                     text_dest.write(unic.text)
                     text_dest.close()
