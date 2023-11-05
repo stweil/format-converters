@@ -110,27 +110,6 @@ def cli(page, out_dir, level, image_format, page_version, text, font, verbose, d
 
         xys = [tuple([int(p) for p in pair.split(',')]) for pair in points.split(' ')]
 
-        # Look for a Baseline with larger x than in Coords (problem in ONB GT).
-        # If found, use that larger x in Coords, too, to extract the right line image.
-        # Coords   =  [(1271, 672), (2065, 672), (2065, 718), (1271, 718)]
-        # Baseline =  [(1272, 707), (1345, 705), (1454, 707), (1654, 708), (1868, 708), (1955, 709), (2916, 715)]
-        baseline_points = struct.find("./" + PC + "Baseline").get("points")
-        if baseline_points:
-            baseline_xys = [tuple([int(p) for p in pair.split(',')]) for pair in baseline_points.split(' ')]
-            baseline_right = baseline_xys[len(baseline_xys) - 1][0]
-            if baseline_right > xys[1][0]:
-                if verbose:
-                    print(f'INFO: baseline right of bounding box for {outname}')
-                if debug:
-                    print(f'DEBUG: {baseline_right=}, {xys=}')
-                xys[1] = (baseline_right, xys[1][1])
-            if baseline_right > xys[2][0]:
-                if verbose:
-                    print(f'INFO: baseline left of bounding box for {outname}')
-                if debug:
-                    print(f'DEBUG: {baseline_right=}, {xys=}')
-                xys[2] = (baseline_right, xys[2][1])
-
         #
         # draw regions into page
         if level == 'page':
@@ -153,16 +132,38 @@ def cli(page, out_dir, level, image_format, page_version, text, font, verbose, d
                 if xy[1] > max_y:
                     max_y = xy[1]
 
+            # Look for a baseline with coordinates outside of box (problem in ONB GT).
+            # If found, increase box to include the baseline.
+            baseline = struct.find("./" + PC + "Baseline")
+            if baseline is None:
+                baseline_points = False
+            else:
+                baseline_points = struct.find("./" + PC + "Baseline").get("points")
+                if baseline_points:
+                    baseline_xys = [tuple([int(p) for p in pair.split(',')]) for pair in baseline_points.split(' ')]
+                    for xy in baseline_xys:
+                        if xy[0] < min_x:
+                            if verbose:
+                                print(f'INFO: baseline changes min_x from {min_x} to {xy[0]} for {outname}')
+                            min_x = xy[0]
+                        if xy[0] > max_x:
+                            if verbose:
+                                print(f'INFO: baseline changes max_x from {max_x} to {xy[0]} for {outname}')
+                            max_x = xy[0]
+                        if xy[1] < min_y:
+                            if verbose:
+                                print(f'INFO: baseline changes min_y from {min_y} to {xy[1]} for {outname}')
+                            min_y = xy[1]
+                        if xy[1] > max_y:
+                            if verbose:
+                                print(f'INFO: baseline changes max_y from {max_y} to {xy[1]} for {outname}')
+                            max_y = xy[1]
+
             #
             # generate struct image
             pil_image_struct = pil_image.crop((min_x, min_y, max_x, max_y))
 
             # rotate line image by multiples of 90° if needed
-            baseline = struct.find("./" + PC + "Baseline")
-            if baseline is not None:
-                baseline_points = struct.find("./" + PC + "Baseline").get("points")
-            else:
-                baseline_points = False
             if not baseline_points:
                 # missing baseline points, assume textline is not rotated
                 pass
