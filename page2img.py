@@ -20,10 +20,11 @@ from PIL import Image, ImageDraw, ImageFont
 @click.option('-p', '--page-version', type=click.Choice(['2013-07-15','2019-07-15']), default='2019-07-15', help="PAGE version (default: '2019-07-15')")
 @click.option('-t', '--text', is_flag=True, default=False, help="Also extract full text (if available) and put it into a text file in the output directory.")
 @click.option('-f', '--font', type=click.Path(dir_okay=False), help="Truetype font file for label output")
+@click.option('--synchronize', is_flag=True, help='Synchronize XML file with existing text files')
 @click.option('-v', '--verbose', is_flag=True, help='Enable verbose mode')
 @click.option('--debug', is_flag=True, help='Enable debug mode')
 
-def cli(page, out_dir, level, image_format, page_version, text, font, verbose, debug):
+def cli(page, out_dir, level, image_format, page_version, text, font, synchronize, verbose, debug):
     """ PAGE: Input PAGE XML """
 
     xml = etree.parse(page)
@@ -212,10 +213,12 @@ def cli(page, out_dir, level, image_format, page_version, text, font, verbose, d
                 unic = text_equiv.find("./" + PC + "Unicode")
                 if unic is not None and unic.text is not None:
                     if level == 'page':
-                        print("%s/%s.txt" % (out_dir,os.path.basename(src_img)))
+                        if verbose:
+                            print("%s/%s.txt" % (out_dir,os.path.basename(src_img)))
                         text_dest = open("%s/%s.txt" % (out_dir,os.path.basename(src_img)), "wa")
                     else:
-                        print("%s/%s_%s.txt" % (out_dir,os.path.basename(src_img),struct.get("id")))
+                        if verbose:
+                            print("%s/%s_%s.txt" % (out_dir,os.path.basename(src_img),struct.get("id")))
                         text_dest = open("%s/%s_%s.txt" % (out_dir,os.path.basename(src_img),struct.get("id")), "w")
                     text_dest.write(unic.text)
                     text_dest.close()
